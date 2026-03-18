@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://api.groq.com https://query1.finance.yahoo.com https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:;">
+<meta name="referrer" content="no-referrer">
+<title>Operação Epic Fury — Dashboard de Guerra</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0c0f;--surface:#111418;--border:#1e2530;--accent:#ff3b30;--amber:#ffcc00;--teal:#00d4aa;--blue:#3b82f6;--dim:#4a5568;--text:#e2e8f0;--muted:#718096}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif,monospace;font-weight:300;min-height:100vh}
+  body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.07) 2px,rgba(0,0,0,.07) 4px);pointer-events:none;z-index:999}
+  /* API BAR */
+  .api-bar{background:#0d1117;border-bottom:2px solid var(--amber);padding:10px 28px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .api-bar label{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--amber);text-transform:uppercase;white-space:nowrap}
+  #api-key-input{flex:1;min-width:240px;max-width:460px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:11px;padding:7px 12px;outline:none}
+  #api-key-input:focus{border-color:var(--amber)}
+  #api-status{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:1px;padding:4px 10px;white-space:nowrap}
+  #api-status.ok{color:var(--teal)}#api-status.err{color:var(--accent)}
+  .api-bar a{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--dim);text-decoration:none;margin-left:auto;white-space:nowrap}
+  .api-bar.no-key{animation:pulse-border 1.5s ease-in-out infinite;}
+  @keyframes pulse-border{0%,100%{border-bottom-color:var(--amber)}50%{border-bottom-color:#ff9900}}
+  #api-key-input.highlight{border-color:var(--accent)!important;box-shadow:0 0 0 2px rgba(255,59,48,.3)}
+  /* HEADER */
+  header{border-bottom:1px solid var(--border);padding:18px 28px 14px;display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap}
+  .hd-title h1{font-family:'Bebas Neue',cursive,sans-serif;font-size:clamp(26px,4vw,46px);letter-spacing:3px;color:#fff;line-height:1}
+  .hd-title .sub{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:4px;margin-top:3px}
+  .hd-meta{margin-left:auto;text-align:right;display:flex;flex-direction:column;gap:4px}
+  #day-badge{background:var(--accent);color:#fff;font-family:'Bebas Neue',cursive,sans-serif;font-size:14px;letter-spacing:2px;padding:3px 10px;display:inline-block}
+  #last-upd{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)}
+  /* KPI BAR */
+  .kpi-bar{display:flex;gap:1px;background:var(--border);border-bottom:1px solid var(--border)}
+  .kpi{flex:1;background:var(--surface);padding:12px 18px;min-width:100px}
+  .kv{font-family:'Bebas Neue',cursive,sans-serif;font-size:clamp(22px,3vw,34px);letter-spacing:1px;line-height:1}
+  .kv.r{color:var(--accent)}.kv.a{color:var(--amber)}.kv.t{color:var(--teal)}.kv.w{color:#fff}.kv.b{color:var(--blue)}
+  .kl{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-top:2px}
+  /* SECTION */
+  .section-label{padding:10px 28px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+  .section-label span{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--muted);text-transform:uppercase}
+  .section-label::before,.section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+  /* CHART SECTION 1 */
+  .sec1-chart{background:var(--surface);padding:22px;display:flex;flex-direction:column;gap:14px}
+  .ctrl{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .tb{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;padding:5px 14px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s}
+  .tb.on{border-color:var(--accent);color:var(--accent);background:rgba(255,59,48,.07)}
+  .tb:hover:not(.on){border-color:var(--dim);color:var(--text)}
+  .chart-wrap{position:relative;width:100%;height:340px;overflow:hidden}
+  .chart-wrap canvas{display:block;width:100%!important;height:340px!important}
+  /* AI STRIP */
+  .ai-strip{background:var(--bg);border-top:1px solid var(--border);padding:16px 22px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .ai-strip-label{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;white-space:nowrap;padding-top:3px}
+  #upd-btn{font-family:'Bebas Neue',cursive,sans-serif;font-size:14px;letter-spacing:3px;padding:9px 16px;background:var(--accent);color:#fff;border:none;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px;white-space:nowrap;flex-shrink:0}
+  #upd-btn:hover{background:#ff5a52}#upd-btn:disabled{opacity:.5;cursor:not-allowed}
+  .sp{width:12px;height:12px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none;flex-shrink:0}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #ai-out{font-size:11px;line-height:1.75;color:var(--muted);background:rgba(255,255,255,.02);border:1px solid var(--border);padding:12px;flex:1;min-width:200px;min-height:60px;max-height:200px;overflow-y:auto;scrollbar-width:thin}
+  #ai-out .hl{color:var(--amber);font-weight:600}#ai-out .dg{color:var(--accent)}
+  /* MACRO */
+  .macro-bar{border-top:1px solid var(--border);background:var(--bg)}
+  .macro-header{padding:14px 22px 10px;display:flex;align-items:center;justify-content:space-between}
+  .macro-header h3{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:3px;color:var(--muted);text-transform:uppercase}
+  #macro-upd-btn{font-family:'Bebas Neue',cursive,sans-serif;font-size:12px;letter-spacing:2px;padding:5px 12px;background:rgba(0,212,170,.15);border:1px solid var(--teal);color:var(--teal);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s}
+  #macro-upd-btn:hover{background:rgba(0,212,170,.25)}#macro-upd-btn:disabled{opacity:.4;cursor:not-allowed}
+  .sp2{width:10px;height:10px;border:2px solid rgba(0,212,170,.3);border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite;display:none}
+  #macro-feed{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1px;background:var(--border)}
+  .macro-item{background:var(--surface);padding:14px 18px;display:flex;flex-direction:column;gap:5px}
+  .macro-tag{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;text-transform:uppercase;padding:2px 6px;display:inline-block}
+  .macro-tag.oil{background:rgba(255,204,0,.12);color:var(--amber)}.macro-tag.br{background:rgba(0,212,170,.12);color:var(--teal)}
+  .macro-tag.us{background:rgba(59,130,246,.12);color:var(--blue)}.macro-tag.geo{background:rgba(255,59,48,.12);color:var(--accent)}
+  .macro-tag.eu{background:rgba(255,255,255,.08);color:#aaa}
+  .macro-title{font-size:13px;color:var(--text);line-height:1.4;font-weight:400}
+  .macro-sub{font-size:11px;color:var(--muted);line-height:1.4}
+  .macro-val{font-family:'Bebas Neue',cursive,sans-serif;font-size:15px;letter-spacing:1px}
+  .macro-val.up{color:var(--accent)}.macro-val.dn{color:var(--teal)}.macro-val.neu{color:var(--amber)}
+  /* CHART SECTION 2 */
+  .sec2-chart{background:var(--surface);padding:22px;display:flex;flex-direction:column;gap:14px}
+  .oil-kpis{display:flex;gap:1px;background:var(--border)}
+  .oil-kpi{flex:1;background:rgba(255,255,255,.02);padding:10px 14px}
+  .oil-kpi .kv{font-size:clamp(18px,2.5vw,26px)}
+  .oil-chart-wrap{position:relative;width:100%;height:280px;overflow:hidden}
+  .oil-chart-wrap canvas{display:block;width:100%!important;height:280px!important}
+  .oil-ctrl{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .oil-tb{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;padding:4px 12px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s}
+  .oil-tb.on{border-color:var(--teal);color:var(--teal);background:rgba(0,212,170,.07)}
+  .oil-tb:hover:not(.on){border-color:var(--dim);color:var(--text)}
+  #war-upd-btn{font-family:'Bebas Neue',cursive,sans-serif;font-size:12px;letter-spacing:2px;padding:5px 12px;background:rgba(255,59,48,.12);border:1px solid var(--accent);color:var(--accent);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s}
+  #war-upd-btn:hover{background:rgba(255,59,48,.22)}#war-upd-btn:disabled{opacity:.4;cursor:not-allowed}
+  .sp5{width:10px;height:10px;border:2px solid rgba(255,59,48,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:none}
+  #war-upd-status{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);align-self:center}
+  #oil-upd-btn{font-family:'Bebas Neue',cursive,sans-serif;font-size:12px;letter-spacing:2px;padding:4px 12px;background:rgba(255,204,0,.15);border:1px solid var(--amber);color:var(--amber);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;margin-left:auto}
+  #oil-upd-btn:hover{background:rgba(255,204,0,.25)}#oil-upd-btn:disabled{opacity:.4;cursor:not-allowed}
+  .sp4{width:10px;height:10px;border:2px solid rgba(255,204,0,.3);border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite;display:none}
+  #oil-upd-status{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-left:8px;align-self:center}
+  /* LOG */
+  .log-bar{border-top:1px solid var(--border);background:var(--bg);padding:16px 22px 22px}
+  .log-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .log-header h3{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:3px;color:var(--muted);text-transform:uppercase}
+  #log-upd-btn{font-family:'Bebas Neue',cursive,sans-serif;font-size:12px;letter-spacing:2px;padding:5px 12px;background:rgba(255,59,48,.12);border:1px solid var(--accent);color:var(--accent);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s}
+  #log-upd-btn:hover{background:rgba(255,59,48,.22)}#log-upd-btn:disabled{opacity:.4;cursor:not-allowed}
+  .sp3{width:10px;height:10px;border:2px solid rgba(255,59,48,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:none}
+  #event-log{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:6px 24px}
+  .ei{display:flex;gap:9px;align-items:flex-start}
+  .ed{font-family:'Bebas Neue',cursive,sans-serif;font-size:17px;color:var(--accent);line-height:1;min-width:30px}
+  .et{font-size:11px;color:var(--muted);line-height:1.5;padding-top:2px}
+  /* FOOTER */
+  footer{border-top:1px solid var(--border);padding:9px 28px;display:flex;justify-content:space-between;align-items:center}
+  footer span{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--dim);text-transform:uppercase}
+  /* TOOLTIP */
+  #tooltip{position:fixed;background:#111418;border:1px solid #1e2530;padding:10px 14px;pointer-events:none;z-index:1000;display:none;min-width:200px;max-width:300px}
+  #tooltip .tt-title{font-family:'Bebas Neue',cursive,sans-serif;font-size:15px;color:#e2e8f0;margin-bottom:4px}
+  #tooltip .tt-body{font-size:11px;color:#718096;line-height:1.5}
+  .cursor-blink::after{content:'█';animation:blink 1s step-end infinite;color:var(--amber);font-size:9px}
+  @keyframes blink{50%{opacity:0}}
+  @media(max-width:700px){.kpi-bar{flex-wrap:wrap}#event-log{grid-template-columns:1fr}#macro-feed{grid-template-columns:1fr}.ai-strip{flex-wrap:wrap}}
+</style>
+</head>
+<body>
+
+<div class="api-bar">
+  <label>🔑 Groq API Key</label>
+  <input id="api-key-input" type="password" placeholder="gsk_..." oninput="saveKey(this.value)" autocomplete="off">
+  <span id="api-status" class="err">⚠ cole sua chave</span>
+  <a href="https://console.groq.com/keys" target="_blank">→ console.groq.com/keys (gratuito, sem cartão)</a>
+</div>
+
+<header>
+  <div class="hd-title">
+    <h1>Operação Epic Fury</h1>
+    <div class="sub">⬤ DASHBOARD DE GUERRA · ATIVIDADE BÉLICA · PETRÓLEO · MACRO</div>
+  </div>
+  <div class="hd-meta">
+    <span id="day-badge">DIA 18</span>
+    <div id="last-upd">última atualização: 18/03/2026</div>
+  </div>
+</header>
+
+<div class="kpi-bar">
+  <div class="kpi"><div class="kv r" id="kpi-miss">2.460</div><div class="kl">Mísseis Balísticos</div></div>
+  <div class="kpi"><div class="kv a" id="kpi-dron">3.677</div><div class="kl">Drones Lançados</div></div>
+  <div class="kpi"><div class="kv t" id="kpi-dec">−95%</div><div class="kl">Mísseis Queda vs D1</div></div>
+  <div class="kpi"><div class="kv r">US$103</div><div class="kl">Brent Fech. D18</div></div>
+  <div class="kpi"><div class="kv a">+47%</div><div class="kl">Brent vs Pré-Guerra</div></div>
+  <div class="kpi"><div class="kv b">177K</div><div class="kl">Ibovespa (pts)</div></div>
+</div>
+
+<div class="section-label"><span>▌ SEÇÃO 1 — ATIVIDADE BÉLICA IRANIANA · MÍSSEIS &amp; DRONES</span></div>
+
+<div class="sec1-chart">
+  <div class="ctrl">
+    <button class="tb on" id="b-d" onclick="setMode('daily')">DIÁRIO</button>
+    <button class="tb" id="b-c" onclick="setMode('cumulative')">ACUMULADO</button>
+    <button class="tb" id="b-b" onclick="setMode('both')">AMBOS</button>
+    <button id="war-upd-btn" onclick="doWarUpdate()" style="margin-left:auto"><span class="sp5" id="spin5"></span>↻ ATUALIZAR DADOS</button>
+    <span id="war-upd-status"></span>
+  </div>
+  <div class="chart-wrap"><canvas id="mc"></canvas></div>
+</div>
+
+<div class="ai-strip">
+  <div class="ai-strip-label">IA · Análise</div>
+  <button id="upd-btn" onclick="doUpdate()"><span class="sp" id="spin"></span>↻ SOLICITAR ANÁLISE IA</button>
+  <div id="ai-out">Pressione o botão para obter análise geopolítica e de mercado do Dia 18.</div>
+</div>
+
+<div class="macro-bar">
+  <div class="macro-header">
+    <h3>Notícias Macro &amp; Mercados do Dia</h3>
+    <button id="macro-upd-btn" onclick="doMacroUpdate()"><span class="sp2" id="spin2"></span>↻ ATUALIZAR NOTÍCIAS</button>
+  </div>
+  <div id="macro-feed"></div>
+</div>
+
+<div class="section-label"><span>▌ SEÇÃO 2 — PETRÓLEO BRENT · PREÇO DIA A DIA</span></div>
+
+<div class="sec2-chart">
+  <div class="oil-kpis">
+    <div class="oil-kpi"><div class="kv r" id="brent-live">—</div><div class="kl">⬤ BRENT LIVE <span id="brent-live-time" style="color:var(--dim)"></span></div></div>
+    <div class="oil-kpi"><div class="kv r" id="brent-last">US$103,14</div><div class="kl">Fech. D18 (17/03)</div></div>
+    <div class="oil-kpi"><div class="kv a">US$119,50</div><div class="kl">Pico Intraday (D8)</div></div>
+    <div class="oil-kpi"><div class="kv t">US$72,10</div><div class="kl">Pré-Guerra</div></div>
+    <div class="oil-kpi"><div class="kv r" id="brent-chg">+47%</div><div class="kl">Var. vs Pré-Guerra</div></div>
+  </div>
+  <div class="oil-ctrl">
+    <button class="oil-tb on" id="ob-f" onclick="setOilMode('close')">FECHAMENTO</button>
+    <button class="oil-tb" id="ob-i" onclick="setOilMode('intraday')">MÁXIMAS</button>
+    <button class="oil-tb" id="ob-b" onclick="setOilMode('both')">AMBOS</button>
+    <button class="oil-tb" id="ob-p" onclick="setOilMode('pct')">VARIAÇÃO %</button>
+    <button id="oil-upd-btn" onclick="doOilUpdate()"><span class="sp4" id="spin4"></span>↻ ATUALIZAR PREÇOS</button>
+    <span id="oil-upd-status"></span>
+  </div>
+  <div class="oil-chart-wrap"><canvas id="oc"></canvas></div>
+</div>
+
+<div class="log-bar">
+  <div class="log-header">
+    <h3>Log de Eventos — Dias 1 → 18</h3>
+    <button id="log-upd-btn" onclick="doLogUpdate()"><span class="sp3" id="spin3"></span>↻ ATUALIZAR LOG IA</button>
+  </div>
+  <div id="event-log"></div>
+</div>
+
+<footer>
+  <span>Operação Epic Fury · Início: 28/02/2026</span>
+  <span>Al Jazeera · CNN · Reuters · CENTCOM · IEA · BCB · Bloomberg</span>
+</footer>
+
+<div id="tooltip"><div class="tt-title" id="tt-title"></div><div class="tt-body" id="tt-body"></div></div>
+
+<script>
+// ════════════════════════════════════
+// GROQ KEY
+// ════════════════════════════════════
+function saveKey(v){
+  v=v.trim();localStorage.setItem('groq_key',v);updateKeyStatus(v);
+  if(v.startsWith('gsk_')&&v.length>20){
+    document.querySelector('.api-bar').classList.remove('no-key');
+  }
+}
+function getKey(){return localStorage.getItem('groq_key')||'';}
+function updateKeyStatus(v){
+  const s=document.getElementById('api-status');
+  if(v.startsWith('gsk_')&&v.length>20){s.textContent='✓ CHAVE OK';s.className='ok';}
+  else if(v.length>0){s.textContent='⚠ FORMATO INVÁLIDO';s.className='err';}
+  else{s.textContent='⚠ cole sua chave';s.className='err';}
+}
+async function groqFetch(prompt,maxTokens){
+  const key=getKey();
+  if(!key){
+    // highlight the key input field
+    const inp=document.getElementById('api-key-input');
+    inp.classList.add('highlight');
+    inp.focus();
+    setTimeout(()=>inp.classList.remove('highlight'),3000);
+    throw new Error('Cole sua chave Groq (gsk_...) no campo amarelo no TOPO da página.');
+  }
+  const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+    body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:maxTokens,temperature:0,messages:[{role:'user',content:prompt}]})
+  });
+  const d=await r.json();
+  if(d.error)throw new Error(d.error.message||JSON.stringify(d.error));
+  return d.choices?.[0]?.message?.content||'Sem resposta.';
+}
+
+// ════════════════════════════════════
+// DATA
+// ════════════════════════════════════
+const D=[
+  {day:1, date:'28/02', m:420, d:580, ev:'Morte de Khamenei. Ormuz fechado. Brent +10%.'},
+  {day:2, date:'01/03', m:310, d:490, ev:'Ormuz efetivamente bloqueado. Declaração de guerra.'},
+  {day:3, date:'02/03', m:260, d:420, ev:'EUA destroem SNSC e Conselho de Discernimento.'},
+  {day:4, date:'03/03', m:195, d:340, ev:'Trump anuncia escolta naval. Brent US$85.'},
+  {day:5, date:'04/03', m:145, d:280, ev:'Mísseis -65% vs Dia 1. Marinha iraniana degradada.'},
+  {day:6, date:'05/03', m:120, d:230, ev:'Qatar força maior no GNL. Cortes no Golfo.'},
+  {day:7, date:'06/03', m:95,  d:190, ev:'Israel ataca refinarias iranianas. Trump: "rendição incondicional".'},
+  {day:8, date:'07/03', m:75,  d:155, ev:'PICO Brent US$119,50 intraday. Mojtaba nomeado Líder.'},
+  {day:9, date:'08/03', m:60,  d:130, ev:'Brent abre >$100. Bolsas asiáticas -5% a -8%.'},
+  {day:10,date:'09/03', m:48,  d:105, ev:'Trump CBS: "guerra muito completa". Brent -11,3% → $87,80.'},
+  {day:11,date:'10/03', m:38,  d:90,  ev:'Wright deleta post falso de escolta. WTI oscilou $77–$93.'},
+  {day:12,date:'11/03', m:30,  d:78,  ev:'AIE libera 400M barris (recorde). Irã: "operação mais intensa".'},
+  {day:13,date:'12/03', m:24,  d:67,  ev:'Khamenei: Hormuz fica fechado. Brent FECHA $100,46.'},
+  {day:14,date:'13/03', m:18,  d:55,  ev:'Kharg Island bombardeada. KC-135: 6 mortos. Brent $103,14.'},
+  {day:15,date:'14/03', m:14,  d:38,  ev:'Dubai airport fechado. 5.000 marines ao OM. Custo $12bi.'},
+  {day:16,date:'15/03', m:11,  d:28,  ev:'Isfahan atacada (15 mortos). Irã nega cessar-fogo. Brent $105,66.'},
+  {day:17,date:'16/03', m:9,   d:22,  ev:'Israel destrói avião Khamenei. NATO recusa Hormuz. Brent $107.'},
+  {day:18,date:'17/03', m:7,   d:18,  ev:'Larijani + Soleimani eliminados. Israel invade Líbano.'},
+];
+let cm=0,cd=0;
+D.forEach(r=>{cm+=r.m;cd+=r.d;r.cm=cm;r.cd=cd;});
+
+const OIL=[
+  {label:'Pré', close:72.10, high:72.10, date:'27/02', ev:'Linha de base pré-guerra'},
+  {label:'D1',  close:79.50, high:83.00, date:'28/02', ev:'Ataque inicial · Ormuz fechado'},
+  {label:'D2',  close:81.20, high:84.00, date:'01/03', ev:'Irã declara guerra'},
+  {label:'D3',  close:83.00, high:86.50, date:'02/03', ev:'Trump anuncia escolta'},
+  {label:'D4',  close:85.41, high:88.00, date:'03/03', ev:'WTI maior alta desde mai/2020'},
+  {label:'D5',  close:87.00, high:90.00, date:'04/03', ev:'Capacidade iraniana: -65%'},
+  {label:'D6',  close:89.00, high:93.00, date:'05/03', ev:'Qatar corta GNL'},
+  {label:'D7',  close:92.00, high:95.00, date:'06/03', ev:'Israel ataca refinarias iranianas'},
+  {label:'D8',  close:98.96, high:119.50,date:'07/03', ev:'PICO US$119,50 · Mojtaba nomeado'},
+  {label:'D9',  close:94.77, high:103.47,date:'08/03', ev:'Brent abre acima de US$100'},
+  {label:'D10', close:87.80, high:93.00, date:'09/03', ev:'Trump CBS: -11,3%'},
+  {label:'D11', close:90.50, high:93.50, date:'10/03', ev:'Volatilidade extrema: $77–$93'},
+  {label:'D12', close:91.98, high:93.00, date:'11/03', ev:'AIE libera 400M barris'},
+  {label:'D13', close:100.46,high:101.59,date:'12/03', ev:'Khamenei: Hormuz permanece fechado'},
+  {label:'D14', close:103.14,high:104.80,date:'13/03', ev:'Kharg Island bombardeada'},
+  {label:'D15', close:105.66,high:107.20,date:'14/03', ev:'Dubai airport fechado. 5.000 marines.'},
+  {label:'D16', close:106.10,high:108.50,date:'15/03', ev:'Isfahan atacada. Papa pede paz.'},
+  {label:'D17', close:107.20,high:109.50,date:'16/03', ev:'Larijani eliminado. Israel invade Líbano.'},
+  {label:'D18', close:103.14,high:105.50,date:'17/03', ev:'Larijani+Soleimani eliminados. Brent recua de pico.'},
+  {label:'D19', close:null,   high:null,  date:'18/03', ev:'Aguardando fechamento…'},
+];
+const BASE=72.10;
+
+// ════════════════════════════════════
+// CANVAS CHART ENGINE (sem dependências)
+// ════════════════════════════════════
+const TT=document.getElementById('tooltip');
+const TTT=document.getElementById('tt-title');
+const TTB=document.getElementById('tt-body');
+
+function showTT(x,y,title,body){
+  TTT.textContent=title; TTB.innerHTML=body;
+  TT.style.display='block';
+  const W=window.innerWidth;
+  TT.style.left=(x+20+TT.offsetWidth>W?x-TT.offsetWidth-10:x+12)+'px';
+  TT.style.top=(y-10)+'px';
+}
+function hideTT(){TT.style.display='none';}
+
+function drawBarChart(canvasId,data,opts){
+  const cv=document.getElementById(canvasId);
+  if(!cv)return;
+  // Force pixel size
+  const W=Math.max(cv.parentElement.getBoundingClientRect().width, cv.parentElement.clientWidth, 300)||300;
+  const H=parseInt(cv.style.height)||340;
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+
+  const PAD={top:24,right:20,bottom:52,left:52};
+  const CW=W-PAD.left-PAD.right;
+  const CH=H-PAD.top-PAD.bottom;
+
+  // find max
+  let maxVal=0;
+  data.forEach(ds=>ds.data.forEach(v=>{if(v!=null&&v>maxVal)maxVal=v;}));
+  maxVal=Math.ceil(maxVal*1.12/50)*50||100;
+
+  const N=data[0].data.length;
+  const nSeries=data.filter(d=>d.type!=='line').length;
+  const gw=CW/N;
+  const bw=gw*0.7/Math.max(nSeries,1);
+
+  // grid & y-axis
+  ctx.strokeStyle='rgba(30,37,48,.6)';ctx.fillStyle='#4a5568';
+  ctx.font='9px monospace';ctx.textAlign='right';
+  const ySteps=5;
+  for(let i=0;i<=ySteps;i++){
+    const v=maxVal*i/ySteps;
+    const y=PAD.top+CH*(1-i/ySteps);
+    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+CW,y);
+    ctx.globalAlpha=0.4;ctx.stroke();ctx.globalAlpha=1;
+    ctx.fillText(Math.round(v),PAD.left-4,y+3);
+  }
+
+  // x-axis labels
+  ctx.textAlign='center';ctx.fillStyle='#4a5568';ctx.font='8px monospace';
+  opts.labels.forEach((lb,i)=>{
+    const x=PAD.left+gw*i+gw/2;
+    const lines=lb.split('\n');
+    lines.forEach((l,li)=>ctx.fillText(l,x,H-PAD.bottom+14+li*11));
+  });
+
+  // draw bars
+  let barIdx=0;
+  data.forEach(ds=>{
+    if(ds.type==='line'){
+      // draw line
+      ctx.strokeStyle=ds.borderColor;ctx.lineWidth=2;
+      ctx.setLineDash(ds.borderDash||[]);
+      ctx.beginPath();
+      let started=false;
+      ds.data.forEach((v,i)=>{
+        if(v==null)return;
+        const x=PAD.left+gw*i+gw/2;
+        const y=PAD.top+CH*(1-v/maxVal);
+        if(!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);
+      });
+      ctx.stroke();ctx.setLineDash([]);
+      // dots
+      ds.data.forEach((v,i)=>{
+        if(v==null)return;
+        const x=PAD.left+gw*i+gw/2;
+        const y=PAD.top+CH*(1-v/maxVal);
+        ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);
+        ctx.fillStyle=ds.borderColor;ctx.fill();
+      });
+    } else {
+      // bar
+      ds.data.forEach((v,i)=>{
+        if(v==null||v===0)return;
+        const barX=PAD.left+gw*i+(gw-bw*nSeries)/2+barIdx*bw;
+        const bh=CH*(v/maxVal);
+        const barY=PAD.top+CH-bh;
+        ctx.fillStyle=ds.backgroundColor;
+        ctx.fillRect(barX,barY,bw-1,bh);
+        // border top
+        ctx.strokeStyle=ds.borderColor;ctx.lineWidth=1;
+        ctx.strokeRect(barX,barY,bw-1,bh);
+      });
+      barIdx++;
+    }
+  });
+
+  // hover interaction
+  cv._chartData={data,opts,PAD,CW,CH,N,gw,bw,nSeries,maxVal,W,H};
+  cv.onmousemove=function(e){
+    const rect=cv.getBoundingClientRect();
+    const mx=e.clientX-rect.left;
+    const my=e.clientY-rect.top;
+    const i=Math.floor((mx-PAD.left)/gw);
+    if(i<0||i>=N){hideTT();return;}
+    const vals=data.map(ds=>`<span style="color:${ds.borderColor}">■</span> ${ds.label}: <b style="color:#e2e8f0">${ds.data[i]!=null?Math.round(ds.data[i]):'-'}</b>`).join('<br>');
+    const ev=opts.events?opts.events[i]:'';
+    showTT(e.clientX,e.clientY,'D'+(i+1)+' — '+opts.labels[i].replace('\n',' '),vals+(ev?'<br><span style="color:#718096;font-size:10px">'+ev+'</span>':''));
+  };
+  cv.onclick=function(e){
+    const rect=cv.getBoundingClientRect();
+    const i=Math.floor((e.clientX-rect.left-PAD.left)/gw);
+    if(i>=0&&i<N&&opts.onClick)opts.onClick(i);
+  };
+  cv.onmouseleave=hideTT;
+}
+
+function drawLineChart(canvasId,datasets,labels,opts){
+  const cv=document.getElementById(canvasId);
+  if(!cv)return;
+  const W=Math.max(cv.parentElement.getBoundingClientRect().width, cv.parentElement.clientWidth, 300)||300;
+  const H=parseInt(cv.style.height)||280;
+  cv.width=W;cv.height=H;
+  const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+
+  const PAD={top:24,right:20,bottom:44,left:56};
+  const CW=W-PAD.left-PAD.right;
+  const CH=H-PAD.top-PAD.bottom;
+  const N=labels.length;
+
+  let allVals=[];
+  datasets.forEach(ds=>ds.data.forEach(v=>{if(v!=null)allVals.push(v);}));
+  let minV=Math.floor(Math.min(...allVals)*0.97);
+  let maxV=Math.ceil(Math.max(...allVals)*1.03);
+  if(opts&&opts.isPercent){minV=Math.floor(minV/5)*5;maxV=Math.ceil(maxV/5)*5;}
+  const range=maxV-minV||1;
+
+  const xOf=i=>PAD.left+i*(CW/(N-1));
+  const yOf=v=>PAD.top+CH*(1-(v-minV)/range);
+
+  // grid
+  ctx.font='9px monospace';ctx.textAlign='right';ctx.fillStyle='#4a5568';
+  for(let i=0;i<=5;i++){
+    const v=minV+range*i/5;
+    const y=PAD.top+CH*(1-i/5);
+    ctx.strokeStyle='rgba(30,37,48,.5)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+CW,y);ctx.stroke();
+    ctx.fillText((opts&&opts.isPercent?v.toFixed(0)+'%':'US$'+v.toFixed(0)),PAD.left-4,y+3);
+  }
+
+  // peak line (D8 = index 8)
+  if(opts&&opts.peakIdx!=null){
+    const px=xOf(opts.peakIdx);
+    ctx.strokeStyle='rgba(255,59,48,.3)';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(px,PAD.top);ctx.lineTo(px,PAD.top+CH);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(255,59,48,.7)';ctx.font='bold 9px monospace';ctx.textAlign='left';
+    ctx.fillText('PICO',px+3,PAD.top+14);
+  }
+
+  // x labels
+  ctx.textAlign='center';ctx.fillStyle='#4a5568';ctx.font='9px monospace';
+  labels.forEach((lb,i)=>{
+    if(i%2===0||i===N-1)ctx.fillText(lb,xOf(i),H-4);
+  });
+
+  // fill + lines
+  datasets.forEach(ds=>{
+    if(ds.fill){
+      ctx.beginPath();
+      let first=true,lastX=0,lastV=null;
+      ds.data.forEach((v,i)=>{
+        if(v==null)return;
+        const x=xOf(i),y=yOf(v);
+        if(first){ctx.moveTo(x,PAD.top+CH);ctx.lineTo(x,y);first=false;}
+        else ctx.lineTo(x,y);
+        lastX=x;lastV=v;
+      });
+      if(lastV!=null)ctx.lineTo(lastX,PAD.top+CH);
+      ctx.closePath();
+      ctx.fillStyle=ds.fillColor||'rgba(255,59,48,.1)';ctx.fill();
+    }
+    // line
+    ctx.strokeStyle=ds.color;ctx.lineWidth=ds.lineWidth||2;
+    ctx.setLineDash(ds.dash||[]);
+    ctx.beginPath();
+    let started=false;
+    ds.data.forEach((v,i)=>{
+      if(v==null)return;
+      const x=xOf(i),y=yOf(v);
+      if(!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);
+    });
+    ctx.stroke();ctx.setLineDash([]);
+    // dots
+    ds.data.forEach((v,i)=>{
+      if(v==null)return;
+      ctx.beginPath();ctx.arc(xOf(i),yOf(v),ds.dotR||3,0,Math.PI*2);
+      const dotColor=ds.dotColor?ds.dotColor(v):ds.color;
+      ctx.fillStyle=dotColor;ctx.fill();
+    });
+  });
+
+  // hover
+  cv.onmousemove=function(e){
+    const rect=cv.getBoundingClientRect();
+    const mx=e.clientX-rect.left;
+    const i=Math.round((mx-PAD.left)/(CW/(N-1)));
+    if(i<0||i>=N){hideTT();return;}
+    const vals=datasets.map(ds=>`<span style="color:${ds.color}">■</span> ${ds.label}: <b style="color:#e2e8f0">${ds.data[i]!=null?(opts&&opts.isPercent?ds.data[i].toFixed(1)+'%':'US$'+ds.data[i]):'-'}</b>`).join('<br>');
+    const item=OIL[i];
+    showTT(e.clientX,e.clientY,'Brent — '+(item?item.date:''),vals+(item?'<br><span style="color:#718096;font-size:10px">'+item.ev+'</span>':''));
+  };
+  cv.onmouseleave=hideTT;
+}
+
+// ════════════════════════════════════
+// CHART 1 — BÉLICO
+// ════════════════════════════════════
+let warMode='daily';
+function getWarDatasets(m){
+  const bars=[
+    {label:'Mísseis',data:D.map(r=>r.m),backgroundColor:'rgba(255,59,48,.72)',borderColor:'#ff3b30'},
+    {label:'Drones', data:D.map(r=>r.d),backgroundColor:'rgba(255,204,0,.65)',borderColor:'#ffcc00'},
+  ];
+  const lines=[
+    {label:'Mísseis (acum.)',type:'line',data:D.map(r=>r.cm),borderColor:'#ff3b30'},
+    {label:'Drones (acum.)', type:'line',data:D.map(r=>r.cd),borderColor:'#ffcc00'},
+  ];
+  if(m==='daily')return bars;
+  if(m==='cumulative')return lines;
+  return[...bars,...lines];
+}
+function drawWar(){
+  const labels=D.map(r=>`D${r.day}\n${r.date}`);
+  drawBarChart('mc',getWarDatasets(warMode),{
+    labels,
+    events:D.map(r=>r.ev),
+    onClick:(i)=>showDay(i)
+  });
+}
+function setMode(m){
+  warMode=m;
+  ['d','c','b'].forEach(x=>document.getElementById('b-'+x).classList.remove('on'));
+  document.getElementById({daily:'b-d',cumulative:'b-c',both:'b-b'}[m]).classList.add('on');
+  drawWar();
+}
+function showDay(i){
+  const r=D[i];
+  document.getElementById('ai-out').innerHTML=
+    `<span class="hl">DIA ${r.day} — ${r.date}</span>\n\nMísseis: ${r.m}  |  Drones: ${r.d}\nAcum.: ${r.cm} mísseis · ${r.cd} drones\n\n${r.ev}`;
+}
+function buildLog(){
+  document.getElementById('event-log').innerHTML=[...D].reverse().map(r=>
+    `<div class="ei"><div class="ed">D${r.day}</div><div class="et">${r.ev}</div></div>`
+  ).join('');
+}
+
+// ════════════════════════════════════
+// CHART 2 — PETRÓLEO
+// ════════════════════════════════════
+let oilMode='close';
+function getOilDatasets(m){
+  const labels=OIL.map(r=>r.label);
+  if(m==='close'){
+    return[{label:'Fechamento (US$/barril)',color:'#ff3b30',fill:true,fillColor:'rgba(255,59,48,.12)',
+      data:OIL.map(r=>r.close),dotColor:(v)=>v>=100?'#ff3b30':'#ffcc00',dotR:4}];
+  }
+  if(m==='intraday'){
+    return[{label:'Máxima Intraday',color:'#ffcc00',dash:[4,3],lineWidth:1.5,
+      data:OIL.map(r=>r.high)}];
+  }
+  if(m==='both'){
+    return[
+      {label:'Fechamento',color:'#ff3b30',fill:true,fillColor:'rgba(255,59,48,.1)',data:OIL.map(r=>r.close),dotColor:(v)=>v>=100?'#ff3b30':'#ffcc00',dotR:4},
+      {label:'Máxima Intraday',color:'#ffcc00',dash:[4,3],lineWidth:1.5,data:OIL.map(r=>r.high)},
+    ];
+  }
+  // pct
+  return[{label:'Variação vs Pré-Guerra (%)',color:'#00d4aa',fill:true,fillColor:'rgba(0,212,170,.1)',
+    data:OIL.map(r=>r.close!=null?+((r.close-BASE)/BASE*100).toFixed(1):null)}];
+}
+function drawOil(){
+  const labels=OIL.map(r=>r.label);
+  drawLineChart('oc',getOilDatasets(oilMode),labels,{peakIdx:8,isPercent:oilMode==='pct'});
+}
+function setOilMode(m){
+  oilMode=m;
+  ['f','i','b','p'].forEach(x=>document.getElementById('ob-'+x).classList.remove('on'));
+  document.getElementById({close:'ob-f',intraday:'ob-i',both:'ob-b',pct:'ob-p'}[m]).classList.add('on');
+  drawOil();
+}
+
+// ════════════════════════════════════
+// BRENT LIVE
+// ════════════════════════════════════
+// ════════════════════════════════════
+// ATUALIZAR DADOS BÉLICOS VIA GROQ
+// ════════════════════════════════════
+async function doWarUpdate(){
+  const btn=document.getElementById('war-upd-btn');
+  const sp=document.getElementById('spin5');
+  const status=document.getElementById('war-upd-status');
+  btn.disabled=true; sp.style.display='inline-block';
+  status.textContent='consultando...'; status.style.color='var(--muted)';
+
+  // Last known day with data
+  const lastDay=D[D.length-1];
+  // Compute what the current war day should be
+  const warStart=new Date('2026-02-28');
+  const today=new Date();
+  const currentDay=Math.max(1,Math.floor((today-warStart)/86400000)+1);
+
+  const prompt=`Você é analista militar. Guerra EUA-Israel vs Irã (Operação Epic Fury, iniciada 28/fev/2026).
+
+SITUAÇÃO ATUAL: Hoje é Dia ${currentDay} da guerra (${today.toLocaleDateString('pt-BR')}).
+Último dado registrado: Dia ${lastDay.day} (${lastDay.date}) — ${lastDay.m} mísseis, ${lastDay.d} drones.
+
+Forneça os dados de lançamentos iranianos para cada dia que falta (Dia ${lastDay.day+1} até Dia ${currentDay}).
+Os números seguem uma tendência decrescente desde o Dia 1 (420 mísseis, 580 drones).
+
+Retorne SOMENTE JSON array. Sem markdown. Sem texto extra.
+Formato: [{"day":${lastDay.day+1},"date":"DD/MM","m":12,"d":20,"ev":"resumo do dia max 75 chars"}]
+Se não souber o dia exato, estime com base na tendência de queda (~15-20% por dia).`;
+
+  try{
+    const text=await groqFetch(prompt,1200);
+    const clean=text.trim().replace(/```json|```/g,'').trim();
+    const match=clean.match(/\[[\s\S]*\]/);
+    if(!match) throw new Error('JSON inválido');
+    const newDays=JSON.parse(match[0]);
+
+    let added=0;
+    newDays.forEach(nd=>{
+      if(!nd.day||!nd.m||!nd.d) return;
+      if(nd.m<0||nd.m>500||nd.d<0||nd.d>700) return; // sanity check
+      const exists=D.find(d=>d.day===nd.day);
+      if(!exists){
+        D.push({day:nd.day,date:nd.date||'',m:parseInt(nd.m),d:parseInt(nd.d),ev:nd.ev||'Dados atualizados via IA.'});
+        added++;
+      } else {
+        // update existing if values changed
+        exists.m=parseInt(nd.m); exists.d=parseInt(nd.d);
+        if(nd.ev) exists.ev=nd.ev;
+      }
+    });
+
+    // Recompute cumulative
+    let cm=0,cd=0;
+    D.forEach(r=>{cm+=r.m;cd+=r.d;r.cm=cm;r.cd=cd;});
+
+    // Update day badge
+    const newMaxDay=D[D.length-1].day;
+    document.getElementById('day-badge').textContent='DIA '+newMaxDay;
+
+    // Update KPIs
+    const totalM=D.reduce((s,r)=>s+r.m,0);
+    const totalD=D.reduce((s,r)=>s+r.d,0);
+    const decPct=Math.round((1-D[D.length-1].m/D[0].m)*100);
+    document.getElementById('kpi-miss').textContent=totalM.toLocaleString('pt-BR');
+    document.getElementById('kpi-dron').textContent=totalD.toLocaleString('pt-BR');
+    document.getElementById('kpi-dec').textContent='−'+decPct+'%';
+
+    // Redraw chart
+    drawWar();
+    buildLog();
+
+    // Update last-upd timestamp
+    document.getElementById('last-upd').textContent='atualizado: '+new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' BRT';
+
+    const msg=added>0?added+' dia(s) novo(s)':'dados atualizados';
+    status.textContent=msg; status.style.color='var(--teal)';
+    setTimeout(()=>{status.textContent='';},4000);
+  }catch(e){
+    status.textContent='Erro: '+e.message.slice(0,40);
+    status.style.color='var(--accent)';
+    setTimeout(()=>{status.textContent='';status.style.color='';},5000);
+  }
+  finally{btn.disabled=false; sp.style.display='none';}
+}
+
+// ════════════════════════════════════
+// ATUALIZAR PREÇOS HISTÓRICOS VIA GROQ
+// ════════════════════════════════════
+async function doOilUpdate(){
+  const btn=document.getElementById('oil-upd-btn');
+  const sp=document.getElementById('spin4');
+  const status=document.getElementById('oil-upd-status');
+  btn.disabled=true; sp.style.display='inline-block';
+  status.textContent='consultando...';
+
+  // Find days with null close prices (excluding today's live slot)
+  const missing=OIL.filter((r,i)=>r.close==null && i<OIL.length-1);
+  if(missing.length===0){
+    status.textContent='dados completos';
+    btn.disabled=false; sp.style.display='none';
+    setTimeout(()=>status.textContent='',3000);
+    return;
+  }
+
+  const missingDays=missing.map(r=>`${r.label} (${r.date})`).join(', ');
+  const lastKnown=OIL.filter(r=>r.close!=null).slice(-1)[0];
+
+  const prompt=`Você é analista de mercados com dados em tempo real. Guerra EUA-Israel vs Irã (Operação Epic Fury, iniciada 28/fev/2026).
+
+Preciso dos preços de fechamento do Brent crude oil (USD/barril) para os seguintes dias que estão faltando na minha base:
+${missingDays}
+
+Último preço conhecido: ${lastKnown.label} (${lastKnown.date}) = US$${lastKnown.close}
+
+Retorne SOMENTE um JSON array. Sem markdown. Sem texto extra.
+Formato: [{"label":"D19","date":"18/03","close":103.50,"high":106.20}]
+Use os preços reais de fechamento do Brent se conhecer. Se não tiver certeza, estime com base na tendência recente.
+Inclua apenas os dias listados acima.`;
+
+  try{
+    const text=await groqFetch(prompt,600);
+    const clean=text.trim().replace(/```json|```/g,'').trim();
+    const match=clean.match(/\[[\s\S]*?\]/);
+    if(!match) throw new Error('JSON inválido');
+    const updates=JSON.parse(match[0]);
+    let updated=0;
+    updates.forEach(u=>{
+      const r=OIL.find(o=>o.label===u.label||o.date===u.date);
+      if(r && u.close && u.close>50 && u.close<300){
+        r.close=parseFloat(u.close.toFixed(2));
+        if(u.high && u.high>r.close) r.high=parseFloat(u.high.toFixed(2));
+        updated++;
+      }
+    });
+    drawOil();
+    // update KPI with latest close
+    const latest=OIL.filter(r=>r.close!=null&&r.label!=='Pré').slice(-1)[0];
+    if(latest){
+      document.getElementById('brent-last').textContent='US$'+latest.close.toFixed(2);
+      document.querySelector('#brent-last+.kl').textContent='Fech. '+latest.label+' ('+latest.date+')';
+      const chg=((latest.close-BASE)/BASE*100).toFixed(1);
+      document.getElementById('brent-chg').textContent=(chg>0?'+':'')+chg+'%';
+    }
+    status.textContent=updated+' dia(s) atualizado(s)';
+    status.style.color='var(--teal)';
+    setTimeout(()=>{status.textContent='';status.style.color='';},4000);
+  }catch(e){
+    status.textContent='Erro: '+e.message.slice(0,40);
+    status.style.color='var(--accent)';
+    setTimeout(()=>{status.textContent='';status.style.color='';},5000);
+  }
+  finally{btn.disabled=false; sp.style.display='none';}
+}
+
+async function fetchBrentLive(){
+  try{
+    const r=await fetch('https://query1.finance.yahoo.com/v8/finance/chart/BZ%3DF?interval=1m&range=1d');
+    const data=await r.json();
+    const meta=data.chart?.result?.[0]?.meta;if(!meta)return;
+    const price=meta.regularMarketPrice;
+    const prev=meta.previousClose||meta.chartPreviousClose;
+    const pct=prev?((price-prev)/prev*100).toFixed(2):null;
+    const el=document.getElementById('brent-live');
+    el.textContent='US$'+price.toFixed(2);el.className='kv '+(price>=100?'r':'a');
+    if(pct)document.getElementById('brent-live-time').textContent=(pct>0?'+':'')+pct+'% '+meta.marketState;
+    OIL[19].close=price;
+    if(oilMode==='close'||oilMode==='both')drawOil();
+    document.getElementById('brent-chg').textContent=(((price-BASE)/BASE*100)>0?'+':'')+((price-BASE)/BASE*100).toFixed(1)+'%';
+  }catch(e){document.getElementById('brent-live').textContent='N/D';}
+}
+
+// ════════════════════════════════════
+// MACRO
+// ════════════════════════════════════
+const DEFAULT_MACRO=[
+  {tag:'geo',title:'Ormuz fechado — 18º dia',          sub:'7.000+ alvos IDF. 100+ navios iranianos destruídos. NATO recusou missão.',  val:'+47%',      dir:'up'},
+  {tag:'oil',title:'Brent D18: US$103 (−3,9%)',        sub:'Recuou após pico. Oxford Econ: $140 por 2 meses → recessão leve Europa/Japão.',val:'US$103', dir:'up'},
+  {tag:'geo',title:'Larijani + Soleimani eliminados',  sub:'Maiores baixas do regime iraniano desde Khamenei pai. Israel invade Líbano.',val:'D18',       dir:'up'},
+  {tag:'us', title:'Fed mantém juros — 99% de chance', sub:'Treasuries sobem 4º dia. Cortes em 2026 praticamente descartados.',         val:'sem corte', dir:'up'},
+  {tag:'us', title:'Trump ameaça sair da NATO',        sub:'Aliados recusaram missão em Hormuz. Trump: "não precisamos de ninguém".',    val:'D18',       dir:'up'},
+  {tag:'us', title:'12 drones MQ-9 Reaper perdidos',  sub:'Abatidos ou destruídos no solo pelo Irã. Bombas 5.000 lbs em Hormuz.',      val:'US$890M/dia',dir:'up'},
+  {tag:'br', title:'Ibovespa ~177k — queda semanal',   sub:'−3,28% no pior dia desde dez/25. Dólar a R$5,32. DIs disparam.',           val:'177k',      dir:'up'},
+  {tag:'br', title:'Focus 16/03: IPCA → 4,10% 2026',  sub:'BTG: IPCA em 4,7% se Brent ficar acima de US$80 por tempo prolongado.',    val:'4,10%',     dir:'up'},
+  {tag:'br', title:'Copom: corte de 25bps precificado',sub:'Mercado reduziu de 50bps para 25bps. Risco de manutenção da Selic em 15%.', val:'25 bps',    dir:'up'},
+  {tag:'br', title:'Governo anuncia pacote do diesel',  sub:'Desoneração PIS/Cofins + subvenção + imposto sobre exportação de petróleo.',val:'fiscal',   dir:'up'},
+  {tag:'br', title:'Petrobras: FCF yield ~13%',        sub:'XP: alta do Brent beneficia caixa e dividendos. PRIO3 e agro tb se beneficiam.',val:'PETR4', dir:'dn'},
+  {tag:'geo',title:'2 mortos em Tel Aviv (D19)',       sub:'Ramat Gan. Irã mantém ~10 ondas/dia. 257 ondas acumuladas vs Israel.',      val:'D19',       dir:'up'},
+];
+let currentMacro=[...DEFAULT_MACRO];
+function renderMacro(items){
+  document.getElementById('macro-feed').innerHTML=items.map(i=>
+    `<div class="macro-item"><span class="macro-tag ${i.tag}">${i.tag.toUpperCase()}</span>
+    <div class="macro-title">${i.title}</div><div class="macro-sub">${i.sub}</div>
+    ${i.val?`<div class="macro-val ${i.dir}">${i.val}</div>`:''}</div>`
+  ).join('');
+}
+async function doMacroUpdate(){
+  const btn=document.getElementById('macro-upd-btn'),sp=document.getElementById('spin2');
+  btn.disabled=true;sp.style.display='inline-block';
+  const titles=currentMacro.map((c,i)=>`${i}:"${c.title}"`).join(', ');
+  const prompt=`Você é analista de mercados. Data atual: 18/03/2026. Guerra EUA-Israel vs Irã (Operação Epic Fury, Dia 18).
+Tenho ${currentMacro.length} cards com títulos: ${titles}
+Para cada card: retorne índice com sub/val ATUALIZADOS se há info mais recente, ou IDÊNTICOS ao original.
+SOMENTE JSON array. Sem texto extra. Formato: [{"i":0,"sub":"max 90 chars","val":"metrica","dir":"up|dn|neu"},...]
+Inclua TODOS os ${currentMacro.length} índices.
+Originais: ${currentMacro.map((c,i)=>`${i}: sub="${c.sub}" val="${c.val}" dir="${c.dir}"`).join('\n')}`;
+  try{
+    const text=await groqFetch(prompt,2000);
+    const match=text.trim().replace(/```json|```/g,'').match(/\[[\s\S]*?\]/);
+    if(!match)throw new Error('JSON não encontrado');
+    JSON.parse(match[0]).forEach(u=>{
+      if(u.i>=0&&u.i<currentMacro.length){
+        if(u.sub&&u.sub.trim())currentMacro[u.i].sub=u.sub;
+        if(u.val&&u.val.trim())currentMacro[u.i].val=u.val;
+        if(u.dir)currentMacro[u.i].dir=u.dir;
+      }
+    });
+    renderMacro(currentMacro);
+    document.getElementById('last-upd').textContent='atualizado: '+new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' BRT';
+  }catch(e){console.warn('Macro:',e.message);}
+  finally{btn.disabled=false;sp.style.display='none';}
+}
+
+// ════════════════════════════════════
+// IA ANÁLISE
+// ════════════════════════════════════
+function md(t){
+  return t
+    .replace(/\*\*(\d+\.\s[^*]+)\*\*/g,'<div style="margin-top:10px;font-family:\'Bebas Neue\',sans-serif;font-size:13px;letter-spacing:2px;color:var(--amber)">$1</div>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong style="color:#e2e8f0">$1</strong>')
+    .replace(/^\*\s(.+)$/gm,'<div style="padding:3px 0 3px 10px;border-left:2px solid var(--border);color:#b0bec5;font-size:11px">$1</div>')
+    .replace(/\n{2,}/g,'').replace(/\n/g,'');
+}
+async function doUpdate(){
+  const btn=document.getElementById('upd-btn'),sp=document.getElementById('spin'),out=document.getElementById('ai-out');
+  btn.disabled=true;sp.style.display='inline-block';
+  out.innerHTML='<span class="cursor-blink">Consultando análise do conflito</span>';
+  const prompt=`Você é analista geopolítico e de mercados. Guerra EUA-Israel vs Irã (Operação Epic Fury, 28/fev/2026).
+STATUS Dia 18 (17/03/2026):
+• Brent ~US$107 — acumula +47% desde pré-guerra. WTI acima de $100
+• Larijani + Soleimani eliminados — maiores baixas desde Khamenei pai
+• Israel lança invasão terrestre no Líbano. Bombas 5.000 lbs em Hormuz
+• NATO recusou missão em Hormuz. Trump ameaça sair da aliança
+• Brasil: Ibovespa 177k, dólar R$5,32, IPCA Focus 4,10%, Copom 25bps
+
+Forneça análise CONCISA (máx 200 palavras) neste formato:
+**1. STATUS MILITAR**
+* ponto A
+* ponto B
+**2. PETRÓLEO — Brent próximos dias**
+* cenário base
+* cenário alternativo
+**3. BRASIL — Ibovespa, USD/BRL, Selic**
+* Ibovespa: outlook
+* Câmbio: outlook
+* Selic: outlook
+Linguagem técnica de mercado. Português.`;
+  try{
+    const text=await groqFetch(prompt,1000);
+    out.innerHTML='';let i=0,buf='';
+    const iv=setInterval(()=>{
+      buf+=text[i]||'';i++;
+      if(i%4===0||i>=text.length)out.innerHTML=md(buf);
+      if(i>=text.length){clearInterval(iv);out.scrollTop=out.scrollHeight;
+        document.getElementById('last-upd').textContent='atualizado: '+new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' BRT';}
+    },13);
+  }catch(e){out.innerHTML=`<span class="dg">Erro: ${e.message}</span>`;}
+  finally{btn.disabled=false;sp.style.display='none';}
+}
+
+// ════════════════════════════════════
+// LOG UPDATE
+// ════════════════════════════════════
+async function doLogUpdate(){
+  const btn=document.getElementById('log-upd-btn'),sp=document.getElementById('spin3');
+  btn.disabled=true;sp.style.display='inline-block';
+  const prompt=`Retorne SOMENTE JSON array com EXATAMENTE 18 objetos. Sem markdown.
+Formato: [{"day":N,"date":"DD/MM","ev":"max 75 chars"}] N de 1 a 18.
+Base: D1:morte Khamenei/Ormuz. D2:declaração guerra. D3:EUA destroem SNSC. D4:escolta/$85. D5:misseis-65%. D6:Qatar GNL. D7:refinarias/rendição. D8:PICO$119,50/Mojtaba. D9:Brent>$100. D10:Trump CBS/-11,3%. D11:Wright post falso. D12:AIE 400M. D13:Khamenei/$100,46. D14:Kharg/KC-135/$103. D15:Dubai/marines/$12bi. D16:Isfahan/papa/$105,66. D17:avião Khamenei/NATO/$107. D18:Larijani+Soleimani/Libano.
+Retorne o JSON:`;
+  try{
+    const text=await groqFetch(prompt,1600);
+    const match=text.trim().replace(/```json|```/g,'').match(/\[[\s\S]*\]/);
+    if(!match)throw new Error('JSON não encontrado');
+    JSON.parse(match[0]).forEach(it=>{const r=D.find(d=>d.day===it.day);if(r)r.ev=it.ev;});
+    buildLog();
+    document.getElementById('last-upd').textContent='atualizado: '+new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' BRT';
+  }catch(e){document.getElementById('event-log').innerHTML=`<div class="ei"><div class="et" style="color:var(--accent)">Erro: ${e.message}</div></div>`;}
+  finally{btn.disabled=false;sp.style.display='none';}
+}
+
+// ════════════════════════════════════
+// INIT
+// ════════════════════════════════════
+window.addEventListener('load',function(){
+  buildLog();
+  renderMacro(currentMacro);
+  fetchBrentLive();
+  setInterval(fetchBrentLive,60000);
+
+  // Draw charts with multiple retries to handle layout timing
+  function tryDraw(attempt){
+    const mc=document.getElementById('mc');
+    const oc=document.getElementById('oc');
+    const w1=mc.parentElement.getBoundingClientRect().width;
+    const w2=oc.parentElement.getBoundingClientRect().width;
+    if(w1>50 && w2>50){
+      drawWar();
+      drawOil();
+    } else if(attempt<20){
+      setTimeout(function(){tryDraw(attempt+1);}, 100);
+    }
+  }
+  setTimeout(function(){tryDraw(0);}, 50);
+  // Extra safety redraws
+  setTimeout(function(){drawWar();drawOil();}, 300);
+  setTimeout(function(){drawWar();drawOil();}, 800);
+
+  // redraw on resize
+  let resizeTimer;
+  window.addEventListener('resize',function(){
+    clearTimeout(resizeTimer);
+    resizeTimer=setTimeout(function(){drawWar();drawOil();},150);
+  });
+
+  // load saved key
+  const saved=getKey();
+  if(saved){
+    document.getElementById('api-key-input').value=saved;
+    updateKeyStatus(saved);
+  } else {
+    document.querySelector('.api-bar').classList.add('no-key');
+  }
+
+  // day badge
+  document.getElementById('day-badge').textContent='DIA '+Math.max(1,Math.floor((new Date()-new Date('2026-02-28'))/86400000)+1);
+});
+</script>
+</body>
+</html>
