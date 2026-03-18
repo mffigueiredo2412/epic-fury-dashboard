@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operação Epic Fury — Dashboard de Guerra</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0c0f; --surface:#111418; --border:#1e2530;
+    --accent:#ff3b30; --amber:#ffcc00; --teal:#00d4aa;
+    --blue:#3b82f6; --dim:#4a5568; --text:#e2e8f0; --muted:#718096;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;font-weight:300;min-height:100vh}
+  body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.07) 2px,rgba(0,0,0,.07) 4px);pointer-events:none;z-index:999}
+
+  /* ── GROQ KEY BAR ── */
+  .api-bar{background:#0d1117;border-bottom:2px solid var(--amber);padding:10px 28px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .api-bar label{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--amber);text-transform:uppercase;white-space:nowrap}
+  #api-key-input{flex:1;min-width:240px;max-width:460px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:11px;padding:7px 12px;outline:none}
+  #api-key-input:focus{border-color:var(--amber)}
+  #api-status{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:1px;padding:4px 10px;white-space:nowrap}
+  #api-status.ok{color:var(--teal)} #api-status.err{color:var(--accent)}
+  .api-bar a{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--dim);text-decoration:none;margin-left:auto;white-space:nowrap}
+  .api-bar a:hover{color:var(--muted)}
+
+  /* ── HEADER ── */
+  header{border-bottom:1px solid var(--border);padding:18px 28px 14px;display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap}
+  .hd-title h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(26px,4vw,46px);letter-spacing:3px;color:#fff;line-height:1}
+  .hd-title .sub{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:4px;margin-top:3px}
+  .hd-meta{margin-left:auto;text-align:right;display:flex;flex-direction:column;gap:4px}
+  #day-badge{background:var(--accent);color:#fff;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;padding:3px 10px;display:inline-block}
+  #last-upd{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)}
+
+  /* ── KPI BAR ── */
+  .kpi-bar{display:flex;gap:1px;background:var(--border);border-bottom:1px solid var(--border)}
+  .kpi{flex:1;background:var(--surface);padding:12px 18px;min-width:100px}
+  .kv{font-family:'Bebas Neue',sans-serif;font-size:clamp(22px,3vw,34px);letter-spacing:1px;line-height:1}
+  .kv.r{color:var(--accent)} .kv.a{color:var(--amber)} .kv.t{color:var(--teal)} .kv.w{color:#fff} .kv.b{color:var(--blue)}
+  .kl{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-top:2px}
+
+  /* ── SECTION LABEL ── */
+  .section-label{padding:10px 28px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+  .section-label span{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--muted);text-transform:uppercase}
+  .section-label::before,.section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+  /* ── GRÁFICO BÉLICO ── */
+  .sec1-chart{background:var(--surface);padding:22px;display:flex;flex-direction:column;gap:14px}
+  .ctrl{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .tb{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;padding:5px 14px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s}
+  .tb.on{border-color:var(--accent);color:var(--accent);background:rgba(255,59,48,.07)}
+  .tb:hover:not(.on){border-color:var(--dim);color:var(--text)}
+  .chart-wrap{position:relative;min-height:320px}
+
+  /* ── ANÁLISE IA strip ── */
+  .ai-strip{background:var(--bg);border-top:1px solid var(--border);padding:16px 22px;display:flex;gap:16px;align-items:flex-start}
+  .ai-strip-label{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;white-space:nowrap;padding-top:3px}
+  #upd-btn{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:3px;padding:9px 16px;background:var(--accent);color:#fff;border:none;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px;white-space:nowrap;flex-shrink:0}
+  #upd-btn:hover{background:#ff5a52} #upd-btn:disabled{opacity:.5;cursor:not-allowed}
+  .sp{width:12px;height:12px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #ai-out{font-size:11px;line-height:1.75;color:var(--muted);background:rgba(255,255,255,.02);border:1px solid var(--border);padding:12px;flex:1;min-height:60px;max-height:200px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+  #ai-out .hl{color:var(--amber);font-weight:600} #ai-out .dg{color:var(--accent)}
+
+  /* ── NOTÍCIAS MACRO ── */
+  .macro-bar{border-top:1px solid var(--border);background:var(--bg)}
+  .macro-header{padding:14px 22px 10px;display:flex;align-items:center;justify-content:space-between}
+  .macro-header h3{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:3px;color:var(--muted);text-transform:uppercase}
+  #macro-upd-btn{font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:2px;padding:5px 12px;background:rgba(0,212,170,.15);border:1px solid var(--teal);color:var(--teal);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s}
+  #macro-upd-btn:hover{background:rgba(0,212,170,.25)} #macro-upd-btn:disabled{opacity:.4;cursor:not-allowed}
+  .sp2{width:10px;height:10px;border:2px solid rgba(0,212,170,.3);border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite;display:none}
+  #macro-feed{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1px;background:var(--border)}
+  .macro-item{background:var(--surface);padding:14px 18px;display:flex;flex-direction:column;gap:5px}
+  .macro-tag{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;text-transform:uppercase;padding:2px 6px;display:inline-block}
+  .macro-tag.oil{background:rgba(255,204,0,.12);color:var(--amber)}
+  .macro-tag.br{background:rgba(0,212,170,.12);color:var(--teal)}
+  .macro-tag.us{background:rgba(59,130,246,.12);color:var(--blue)}
+  .macro-tag.geo{background:rgba(255,59,48,.12);color:var(--accent)}
+  .macro-tag.eu{background:rgba(255,255,255,.08);color:#aaa}
+  .macro-title{font-size:13px;color:var(--text);line-height:1.4;font-weight:400}
+  .macro-sub{font-size:11px;color:var(--muted);line-height:1.4}
+  .macro-val{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px}
+  .macro-val.up{color:var(--accent)} .macro-val.dn{color:var(--teal)} .macro-val.neu{color:var(--amber)}
+
+  /* ── GRÁFICO PETRÓLEO ── */
+  .sec2-chart{background:var(--surface);padding:22px;display:flex;flex-direction:column;gap:14px}
+  .oil-kpis{display:flex;gap:1px;background:var(--border)}
+  .oil-kpi{flex:1;background:rgba(255,255,255,.02);padding:10px 14px}
+  .oil-kpi .kv{font-size:clamp(18px,2.5vw,26px)}
+  .oil-chart-wrap{position:relative;min-height:260px}
+  .oil-ctrl{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .oil-tb{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;padding:4px 12px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s}
+  .oil-tb.on{border-color:var(--teal);color:var(--teal);background:rgba(0,212,170,.07)}
+  .oil-tb:hover:not(.on){border-color:var(--dim);color:var(--text)}
+
+  /* ── LOG DE EVENTOS ── */
+  .log-bar{border-top:1px solid var(--border);background:var(--bg);padding:16px 22px 22px}
+  .log-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .log-header h3{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:3px;color:var(--muted);text-transform:uppercase}
+  #log-upd-btn{font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:2px;padding:5px 12px;background:rgba(255,59,48,.12);border:1px solid var(--accent);color:var(--accent);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s}
+  #log-upd-btn:hover{background:rgba(255,59,48,.22)} #log-upd-btn:disabled{opacity:.4;cursor:not-allowed}
+  .sp3{width:10px;height:10px;border:2px solid rgba(255,59,48,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:none}
+  #event-log{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:6px 24px}
+  .ei{display:flex;gap:9px;align-items:flex-start}
+  .ed{font-family:'Bebas Neue',sans-serif;font-size:17px;color:var(--accent);line-height:1;min-width:30px}
+  .et{font-size:11px;color:var(--muted);line-height:1.5;padding-top:2px}
+
+  /* ── FOOTER ── */
+  footer{border-top:1px solid var(--border);padding:9px 28px;display:flex;justify-content:space-between;align-items:center}
+  footer span{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--dim);text-transform:uppercase}
+  .cursor-blink::after{content:'█';animation:blink 1s step-end infinite;color:var(--amber);font-size:9px}
+  @keyframes blink{50%{opacity:0}}
+  @media(max-width:700px){.kpi-bar{flex-wrap:wrap}#event-log{grid-template-columns:1fr}#macro-feed{grid-template-columns:1fr}.ai-strip{flex-wrap:wrap}}
+</style>
+</head>
+<body>
+
+<!-- ── GROQ API KEY (única barra) ── -->
+<div class="api-bar">
+  <label>🔑 Groq API Key</label>
+  <input id="api-key-input" type="password" placeholder="gsk_..." oninput="saveKey(this.value)" autocomplete="off">
+  <span id="api-status" class="err">⚠ cole sua chave</span>
+  <a href="https://console.groq.com/keys" target="_blank">→ console.groq.com/keys (gratuito, sem cartão)</a>
+</div>
+
+<header>
+  <div class="hd-title">
+    <h1>Operação Epic Fury</h1>
+    <div class="sub">⬤ DASHBOARD DE GUERRA · ATIVIDADE BÉLICA · PETRÓLEO · MACRO</div>
+  </div>
+  <div class="hd-meta">
+    <span id="day-badge">DIA 18</span>
+    <div id="last-upd">última atualização: 18/03/2026</div>
+  </div>
+</header>
+
+<div class="kpi-bar">
+  <div class="kpi"><div class="kv r">2.460</div><div class="kl">Mísseis Balísticos</div></div>
+  <div class="kpi"><div class="kv a">3.677</div><div class="kl">Drones Lançados</div></div>
+  <div class="kpi"><div class="kv t">−95%</div><div class="kl">Mísseis Queda vs D1</div></div>
+  <div class="kpi"><div class="kv r">US$106+</div><div class="kl">Brent (D17)</div></div>
+  <div class="kpi"><div class="kv a">+47%</div><div class="kl">Brent vs Pré-Guerra</div></div>
+  <div class="kpi"><div class="kv b">177k</div><div class="kl">Ibovespa (pts)</div></div>
+</div>
+
+<!-- ══════ SEÇÃO 1 — ATIVIDADE BÉLICA ══════ -->
+<div class="section-label"><span>▌ SEÇÃO 1 — ATIVIDADE BÉLICA IRANIANA · MÍSSEIS &amp; DRONES</span></div>
+
+<div class="sec1-chart">
+  <div class="ctrl">
+    <button class="tb on" id="b-d" onclick="setMode('daily')">DIÁRIO</button>
+    <button class="tb" id="b-c" onclick="setMode('cumulative')">ACUMULADO</button>
+    <button class="tb" id="b-b" onclick="setMode('both')">AMBOS</button>
+    <span style="margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--dim)">← hover/clique para detalhes</span>
+  </div>
+  <div class="chart-wrap"><canvas id="mc"></canvas></div>
+</div>
+
+<!-- Análise IA (abaixo gráfico bélico) -->
+<div class="ai-strip">
+  <div class="ai-strip-label">IA · Análise</div>
+  <button id="upd-btn" onclick="doUpdate()">
+    <span class="sp" id="spin"></span>↻ SOLICITAR ANÁLISE IA
+  </button>
+  <div id="ai-out">Pressione o botão para obter análise geopolítica e de mercado do Dia 14.</div>
+</div>
+
+<!-- Notícias Macro (abaixo da análise IA) -->
+<div class="macro-bar">
+  <div class="macro-header">
+    <h3>Notícias Macro &amp; Mercados do Dia</h3>
+    <button id="macro-upd-btn" onclick="doMacroUpdate()">
+      <span class="sp2" id="spin2"></span>↻ ATUALIZAR NOTÍCIAS
+    </button>
+  </div>
+  <div id="macro-feed"></div>
+</div>
+
+<!-- ══════ SEÇÃO 2 — PETRÓLEO BRENT ══════ -->
+<div class="section-label"><span>▌ SEÇÃO 2 — PETRÓLEO BRENT · PREÇO DIA A DIA</span></div>
+
+<div class="sec2-chart">
+  <div class="oil-kpis">
+    <div class="oil-kpi"><div class="kv r" id="brent-live">—</div><div class="kl">⬤ BRENT LIVE <span id="brent-live-time" style="color:var(--dim)"></span></div></div>
+    <div class="oil-kpi"><div class="kv r" id="brent-last">US$100,46</div><div class="kl">Fech. D13 (12/03)</div></div>
+    <div class="oil-kpi"><div class="kv a">US$119,50</div><div class="kl">Pico Intraday (D8)</div></div>
+    <div class="oil-kpi"><div class="kv t">US$72,10</div><div class="kl">Pré-Guerra</div></div>
+    <div class="oil-kpi"><div class="kv r" id="brent-chg">+39,3%</div><div class="kl">Var. vs Pré-Guerra</div></div>
+  </div>
+  <div class="oil-ctrl">
+    <button class="oil-tb on" id="ob-f" onclick="setOilMode('close')">FECHAMENTO</button>
+    <button class="oil-tb" id="ob-i" onclick="setOilMode('intraday')">MÁXIMAS</button>
+    <button class="oil-tb" id="ob-b" onclick="setOilMode('both')">AMBOS</button>
+    <button class="oil-tb" id="ob-p" onclick="setOilMode('pct')">VARIAÇÃO %</button>
+  </div>
+  <div class="oil-chart-wrap"><canvas id="oc"></canvas></div>
+</div>
+
+<!-- Log de Eventos (abaixo gráfico petróleo) -->
+<div class="log-bar">
+  <div class="log-header">
+    <h3>Log de Eventos — Dias 1 → 14</h3>
+    <button id="log-upd-btn" onclick="doLogUpdate()">
+      <span class="sp3" id="spin3"></span>↻ ATUALIZAR LOG IA
+    </button>
+  </div>
+  <div id="event-log"></div>
+</div>
+
+<footer>
+  <span>Operação Epic Fury · Início: 28/02/2026</span>
+  <span>Al Jazeera · CNN · Reuters · CENTCOM · IEA · BCB · Bloomberg</span>
+</footer>
+
+<script>
+// ════════════════════════════════════════════════
+// GROQ API KEY — localStorage
+// ════════════════════════════════════════════════
+function saveKey(v){
+  v=v.trim(); localStorage.setItem('groq_key',v); updateKeyStatus(v);
+}
+function getKey(){return localStorage.getItem('groq_key')||'';}
+function updateKeyStatus(v){
+  const s=document.getElementById('api-status');
+  if(v.startsWith('gsk_')&&v.length>20){s.textContent='✓ CHAVE OK';s.className='ok';}
+  else if(v.length>0){s.textContent='⚠ FORMATO INVÁLIDO';s.className='err';}
+  else{s.textContent='⚠ cole sua chave';s.className='err';}
+}
+async function groqFetch(prompt,maxTokens){
+  const key=getKey();
+  if(!key) throw new Error('Chave Groq não configurada — cole sua chave gsk_ no topo da página.');
+  const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+    body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:maxTokens,
+      temperature:0,
+      messages:[{role:'user',content:prompt}]})
+  });
+  const d=await r.json();
+  if(d.error) throw new Error(d.error.message||JSON.stringify(d.error));
+  return d.choices?.[0]?.message?.content||'Sem resposta.';
+}
+
+// ════════════════════════════════════════════════
+// SEÇÃO 1 — DADOS BÉLICOS
+// ════════════════════════════════════════════════
+const D=[
+  {day:1, date:'28/02', m:420, d:580, ev:'Morte de Khamenei. Ormuz fechado. Brent +10%.'},
+  {day:2, date:'01/03', m:310, d:490, ev:'Ormuz efetivamente bloqueado. Declaração de guerra.'},
+  {day:3, date:'02/03', m:260, d:420, ev:'EUA destroem SNSC e Conselho de Discernimento.'},
+  {day:4, date:'03/03', m:195, d:340, ev:'Trump anuncia escolta naval. Brent US$85.'},
+  {day:5, date:'04/03', m:145, d:280, ev:'Mísseis -65% vs Dia 1. Marinha iraniana degradada.'},
+  {day:6, date:'05/03', m:120, d:230, ev:'Qatar força maior no GNL. Cortes no Golfo.'},
+  {day:7, date:'06/03', m:95,  d:190, ev:'Israel ataca refinarias iranianas. Trump: "rendição incondicional".'},
+  {day:8, date:'07/03', m:75,  d:155, ev:'🔴 PICO Brent US$119,50 intraday. Mojtaba nomeado Líder.'},
+  {day:9, date:'08/03', m:60,  d:130, ev:'Brent abre >$100. Bolsas asiáticas -5% a -8%.'},
+  {day:10,date:'09/03', m:48,  d:105, ev:'Trump CBS: "guerra muito completa". Brent -11,3% → $87,80.'},
+  {day:11,date:'10/03', m:38,  d:90,  ev:'Wright deleta post falso de escolta. WTI oscilou $77–$93.'},
+  {day:12,date:'11/03', m:30,  d:78,  ev:'AIE libera 400M barris (recorde). Irã: "operação mais intensa".'},
+  {day:13,date:'12/03', m:24,  d:67,  ev:'Khamenei fala: Hormuz fica fechado. Brent FECHA $100,46.'},
+  {day:14,date:'13/03', m:18,  d:55,  ev:'Kharg Island bombardeada (90+ alvos). KC-135: 6 mortos. Brent $103,14.'},
+  {day:15,date:'14/03', m:14,  d:38,  ev:'Dubai airport fechado por drone. EUA: 5.000 marines ao OM. Custo guerra: $12bi.'},
+  {day:16,date:'15/03', m:11,  d:28,  ev:'Isfahan atacada (15 mortos). Irã nega cessar-fogo. Brent $105,66. Papa pede paz.'},
+  {day:17,date:'16/03', m:9,   d:22,  ev:'Israel destrói avião de Khamenei. Dubai fechado. 200 EUA feridos. 7.600 ataques IDF.'},
+  {day:18,date:'17/03', m:7,   d:18,  ev:'Larijani + Soleimani eliminados. Israel invade Líbano. Bombas 5.000 lbs em Hormuz.'},
+];
+let cm=0,cd=0;
+D.forEach(r=>{cm+=r.m;cd+=r.d;r.cm=cm;r.cd=cd;});
+const labels1=D.map(r=>`D${r.day}\n${r.date}`);
+let mode='daily',chart1;
+
+function datasets1(m){
+  const bars=[
+    {label:'Mísseis',data:D.map(r=>r.m),backgroundColor:'rgba(255,59,48,.72)',borderColor:'#ff3b30',borderWidth:1,borderRadius:2,yAxisID:'y'},
+    {label:'Drones', data:D.map(r=>r.d),backgroundColor:'rgba(255,204,0,.65)',borderColor:'#ffcc00',borderWidth:1,borderRadius:2,yAxisID:'y'},
+  ];
+  const lines=[
+    {label:'Mísseis (acum.)',data:D.map(r=>r.cm),type:'line',borderColor:'#ff3b30',backgroundColor:'rgba(255,59,48,.1)',fill:true,tension:.35,pointRadius:3,pointHoverRadius:6,yAxisID:'y'},
+    {label:'Drones (acum.)', data:D.map(r=>r.cd),type:'line',borderColor:'#ffcc00',backgroundColor:'rgba(255,204,0,.1)',fill:true,tension:.35,pointRadius:3,pointHoverRadius:6,yAxisID:'y'},
+  ];
+  if(m==='daily') return bars;
+  if(m==='cumulative') return lines;
+  return[{...bars[0],yAxisID:'y'},{...bars[1],yAxisID:'y'},{...lines[0],yAxisID:'y2'},{...lines[1],yAxisID:'y2'}];
+}
+function initChart1(){
+  const ctx=document.getElementById('mc').getContext('2d');
+  chart1=new Chart(ctx,{
+    type:'bar',data:{labels:labels1,datasets:datasets1('daily')},
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:{duration:450,easing:'easeOutQuart'},
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{labels:{color:'#718096',font:{family:"'Share Tech Mono',monospace",size:9},boxWidth:10}},
+        tooltip:{backgroundColor:'#111418',borderColor:'#1e2530',borderWidth:1,
+          titleColor:'#e2e8f0',bodyColor:'#718096',padding:10,
+          titleFont:{family:"'Bebas Neue',sans-serif",size:15},
+          bodyFont:{family:"'Barlow',sans-serif",size:11},
+          callbacks:{afterBody:(it)=>['\n'+D[it[0].dataIndex].ev]}}
+      },
+      scales:{
+        x:{grid:{color:'rgba(30,37,48,.5)'},ticks:{color:'#4a5568',font:{family:"'Share Tech Mono',monospace",size:8}}},
+        y:{grid:{color:'rgba(30,37,48,.5)'},ticks:{color:'#4a5568',font:{family:"'Share Tech Mono',monospace",size:8}}},
+        y2:{display:false,position:'right',grid:{drawOnChartArea:false},ticks:{color:'#4a5568'}}
+      },
+      onClick:(_,els)=>{if(els.length)showDay(els[0].index);}
+    }
+  });
+}
+function setMode(m){
+  mode=m;
+  ['d','c','b'].forEach(x=>document.getElementById('b-'+x).classList.remove('on'));
+  document.getElementById({daily:'b-d',cumulative:'b-c',both:'b-b'}[m]).classList.add('on');
+  chart1.data.datasets=datasets1(m);
+  chart1.options.scales.y2.display=(m==='both');
+  chart1.update();
+}
+function showDay(i){
+  const r=D[i];
+  document.getElementById('ai-out').innerHTML=
+    `<span class="hl">DIA ${r.day} — ${r.date}</span>\n\nMísseis: ${r.m}  |  Drones: ${r.d}\nAcum.: ${r.cm} mísseis · ${r.cd} drones\n\n${r.ev}`;
+}
+function buildLog(){
+  document.getElementById('event-log').innerHTML=[...D].reverse().map(r=>
+    `<div class="ei"><div class="ed">D${r.day}</div><div class="et">${r.ev}</div></div>`
+  ).join('');
+}
+
+// ════════════════════════════════════════════════
+// SEÇÃO 2 — DADOS PETRÓLEO
+// ════════════════════════════════════════════════
+const OIL=[
+  {day:0, date:'27/02',label:'Pré', close:72.10, high:72.10, ev:'Linha de base pré-guerra'},
+  {day:1, date:'28/02',label:'D1',  close:79.50, high:83.00, ev:'Ataque inicial · Ormuz fechado'},
+  {day:2, date:'01/03',label:'D2',  close:81.20, high:84.00, ev:'Irã declara guerra'},
+  {day:3, date:'02/03',label:'D3',  close:83.00, high:86.50, ev:'Trump anuncia escolta'},
+  {day:4, date:'03/03',label:'D4',  close:85.41, high:88.00, ev:'WTI maior alta desde mai/2020'},
+  {day:5, date:'04/03',label:'D5',  close:87.00, high:90.00, ev:'Capacidade iraniana: -65%'},
+  {day:6, date:'05/03',label:'D6',  close:89.00, high:93.00, ev:'Qatar corta GNL'},
+  {day:7, date:'06/03',label:'D7',  close:92.00, high:95.00, ev:'Israel ataca refinarias iranianas'},
+  {day:8, date:'07/03',label:'D8',  close:98.96, high:119.50,ev:'🔴 PICO US$119,50 · Mojtaba nomeado'},
+  {day:9, date:'08/03',label:'D9',  close:94.77, high:103.47,ev:'Brent abre acima de US$100'},
+  {day:10,date:'09/03',label:'D10', close:87.80, high:93.00, ev:'Trump CBS: -11,3%'},
+  {day:11,date:'10/03',label:'D11', close:90.50, high:93.50, ev:'Volatilidade extrema: $77–$93'},
+  {day:12,date:'11/03',label:'D12', close:91.98, high:93.00, ev:'AIE libera 400M barris'},
+  {day:13,date:'12/03',label:'D13', close:100.46,high:101.59,ev:'Khamenei: Hormuz permanece fechado'},
+  {day:14,date:'13/03',label:'D14', close:103.14,high:104.80,ev:'Kharg Island bombardeada. Brent +41,5% desde pré-guerra.'},
+  {day:15,date:'14/03',label:'D15', close:105.66,high:107.20,ev:'Dubai airport fechado. 5.000 marines ao OM. Custo $12bi.'},
+  {day:16,date:'15/03',label:'D16', close:106.10,high:108.50,ev:'Isfahan atacada. Irã nega cessar-fogo. Papa pede paz.'},
+  {day:17,date:'16/03',label:'D17', close:107.20,high:109.50,ev:'Larijani eliminado. Israel invade Líbano. NATO recusa Hormuz.'},
+  {day:18,date:'17/03',label:'D18', close:null,  high:null,  ev:'Aguardando fechamento…'},
+];
+const BASE=72.10;
+const oilLabels=OIL.map(r=>r.label);
+let oilMode='close',chart2;
+
+function oilDatasets(m){
+  const cl={label:'Fechamento (US$/barril)',data:OIL.map(r=>r.close),type:'line',borderColor:'#ff3b30',backgroundColor:'rgba(255,59,48,.12)',fill:true,tension:.3,pointRadius:4,pointHoverRadius:7,pointBackgroundColor:OIL.map(r=>r.close>=100?'#ff3b30':r.close?'#ffcc00':'#4a5568'),pointBorderColor:'transparent',borderWidth:2,yAxisID:'y',spanGaps:true};
+  const hl={label:'Máxima Intraday',data:OIL.map(r=>r.high),type:'line',borderColor:'#ffcc00',backgroundColor:'rgba(255,204,0,.06)',fill:false,tension:.3,pointRadius:3,pointHoverRadius:6,borderDash:[4,3],borderWidth:1.5,yAxisID:'y',spanGaps:true};
+  const pc={label:'Variação vs Pré-Guerra (%)',data:OIL.map(r=>r.close!=null?+((r.close-BASE)/BASE*100).toFixed(1):null),type:'line',borderColor:'#00d4aa',backgroundColor:'rgba(0,212,170,.1)',fill:true,tension:.3,pointRadius:3,pointHoverRadius:6,borderWidth:2,yAxisID:'y',spanGaps:true};
+  if(m==='close') return[cl]; if(m==='intraday') return[hl]; if(m==='both') return[cl,hl]; return[pc];
+}
+function initChart2(){
+  const ctx=document.getElementById('oc').getContext('2d');
+  const pk={id:'pk',afterDraw(c){
+    const{ctx:x,chartArea:a,scales:s}=c; if(!a) return;
+    const px=s.x.getPixelForValue(8);
+    x.save();x.beginPath();x.moveTo(px,a.top);x.lineTo(px,a.bottom);
+    x.strokeStyle='rgba(255,59,48,.25)';x.lineWidth=1;x.setLineDash([3,3]);x.stroke();
+    x.setLineDash([]);x.font="bold 9px 'Share Tech Mono'";x.fillStyle='rgba(255,59,48,.7)';
+    x.fillText('PICO',px+3,a.top+14);x.restore();
+  }};
+  chart2=new Chart(ctx,{
+    type:'line',data:{labels:oilLabels,datasets:oilDatasets('close')},plugins:[pk],
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:{duration:450,easing:'easeOutQuart'},
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{labels:{color:'#718096',font:{family:"'Share Tech Mono',monospace",size:9},boxWidth:10}},
+        tooltip:{backgroundColor:'#111418',borderColor:'#1e2530',borderWidth:1,
+          titleColor:'#e2e8f0',bodyColor:'#718096',padding:10,
+          titleFont:{family:"'Bebas Neue',sans-serif",size:15},
+          bodyFont:{family:"'Barlow',sans-serif",size:11},
+          callbacks:{title:(it)=>['Brent — '+OIL[it[0].dataIndex].date],
+            afterBody:(it)=>['\n'+OIL[it[0].dataIndex].ev]}}
+      },
+      scales:{
+        x:{grid:{color:'rgba(30,37,48,.5)'},ticks:{color:'#4a5568',font:{family:"'Share Tech Mono',monospace",size:9}}},
+        y:{grid:{color:'rgba(30,37,48,.5)'},ticks:{color:'#4a5568',font:{family:"'Share Tech Mono',monospace",size:9},
+          callback:(v)=>oilMode==='pct'?v+'%':'US$'+v}}
+      }
+    }
+  });
+}
+function setOilMode(m){
+  oilMode=m;
+  ['f','i','b','p'].forEach(x=>document.getElementById('ob-'+x).classList.remove('on'));
+  document.getElementById({close:'ob-f',intraday:'ob-i',both:'ob-b',pct:'ob-p'}[m]).classList.add('on');
+  chart2.data.datasets=oilDatasets(m); chart2.update();
+}
+
+// Brent Live via Yahoo Finance
+async function fetchBrentLive(){
+  try{
+    const r=await fetch('https://query1.finance.yahoo.com/v8/finance/chart/BZ%3DF?interval=1m&range=1d');
+    const data=await r.json();
+    const meta=data.chart?.result?.[0]?.meta; if(!meta) return;
+    const price=meta.regularMarketPrice;
+    const prev=meta.previousClose||meta.chartPreviousClose;
+    const pct=prev?((price-prev)/prev*100).toFixed(2):null;
+    const el=document.getElementById('brent-live');
+    el.textContent='US$'+price.toFixed(2); el.className='kv '+(price>=100?'r':'a');
+    if(pct) document.getElementById('brent-live-time').textContent=(pct>0?'+':'')+pct+'% '+meta.marketState;
+    OIL[18].close=price;
+    if(oilMode==='close'||oilMode==='both'){chart2.data.datasets=oilDatasets(oilMode);chart2.update('none');}
+    document.getElementById('brent-chg').textContent=(((price-BASE)/BASE*100)>0?'+':'')+((price-BASE)/BASE*100).toFixed(1)+'%';
+  }catch(e){document.getElementById('brent-live').textContent='N/D';}
+}
+
+// ════════════════════════════════════════════════
+// NOTÍCIAS MACRO
+// ════════════════════════════════════════════════
+const DEFAULT_MACRO=[
+  {tag:'geo',title:'Ormuz fechado — 18º dia',          sub:'7.000+ alvos IDF. 100+ navios iranianos destruídos. NATO recusou missão Hormuz.',val:'+47%',    dir:'up'},
+  {tag:'oil',title:'Brent ~US$107 (D17)',              sub:'Oxford Econ: Brent $140 por 2 meses → recessão leve na Europa/Japão. CPI +5,8%.',val:'~US$107', dir:'up'},
+  {tag:'geo',title:'Larijani + Soleimani eliminados',  sub:'Maiores baixas do regime iraniano desde Khamenei pai. Israel invade Líbano.',   val:'D18',     dir:'up'},
+  {tag:'us', title:'Fed mantém juros — 99% de chance', sub:'Treasuries sobem 4º dia seguido. Cortes em 2026 praticamente descartados.',     val:'sem corte',dir:'up'},
+  {tag:'us', title:'Trump ameaça sair da NATO',        sub:'Aliados europeus recusaram missão em Hormuz. Trump: "não precisamos de ninguém".',val:'D18',    dir:'up'},
+  {tag:'us', title:'12 drones MQ-9 Reaper perdidos',  sub:'Abatidos ou destruídos no solo pelo Irã. Bombas 5.000 lbs em Hormuz (D18).',    val:'US$890M/dia',dir:'up'},
+  {tag:'br', title:'Ibovespa ~177k pts — queda semanal',sub:'−3,28% no pior dia desde dez/25. Dólar a R$5,32. DIs disparam em toda a curva.',val:'177k',   dir:'up'},
+  {tag:'br', title:'Focus 16/03: IPCA → 4,10% em 2026',sub:'Revisão por guerra: BTG vê IPCA em 4,7% se Brent ficar acima de US$80.',      val:'4,10%',   dir:'up'},
+  {tag:'br', title:'Copom: corte de 25bps precificado',sub:'Mercado reduziu de 50bps para 25bps. Risco de manutenção da Selic em 15%.',     val:'25 bps',  dir:'up'},
+  {tag:'br', title:'Governo anuncia pacote do diesel',  sub:'Desoneração PIS/Cofins + subvenção + imposto sobre exportação de petróleo.',   val:'fiscal',  dir:'up'},
+  {tag:'br', title:'Petrobras: FCF yield ~13%',        sub:'XP: alta do Brent beneficia caixa e dividendos. PRIO3 e agro tb se beneficiam.', val:'PETR4',  dir:'dn'},
+  {tag:'geo',title:'Mísseis iranianos: 2 mortos em Israel',sub:'Ramat Gan (Tel Aviv). Irã mantém ~10 ondas/dia. 257 ondas acumuladas vs Israel.',val:'D19', dir:'up'},
+];
+function renderMacro(items){
+  document.getElementById('macro-feed').innerHTML=items.map(i=>`
+    <div class="macro-item">
+      <span class="macro-tag ${i.tag}">${i.tag.toUpperCase()}</span>
+      <div class="macro-title">${i.title}</div>
+      <div class="macro-sub">${i.sub}</div>
+      ${i.val?`<div class="macro-val ${i.dir}">${i.val}</div>`:''}
+    </div>`).join('');
+}
+// ════════════════════════════════════════════════
+// ATUALIZAR NOTÍCIAS — merge com default, IA só atualiza sub/val/dir
+// ════════════════════════════════════════════════
+let currentMacro=[...DEFAULT_MACRO];
+async function doMacroUpdate(){
+  const btn=document.getElementById('macro-upd-btn'),sp=document.getElementById('spin2');
+  btn.disabled=true; sp.style.display='inline-block';
+
+  // monta lista dos títulos existentes para a IA referenciar
+  const titles=currentMacro.map((c,i)=>`${i}:"${c.title}"`).join(', ');
+
+  const prompt=`Você é analista de mercados. Data atual: 18/03/2026. Guerra EUA-Israel vs Irã (Operação Epic Fury, Dia 18).
+
+Tenho ${currentMacro.length} cards de notícias com os seguintes títulos (índice:título):
+${titles}
+
+Sua tarefa: para cada card, decida se há informação MAIS RECENTE ou MAIS PRECISA disponível hoje.
+- Se SIM: retorne o índice com sub e val atualizados.
+- Se NÃO: retorne o índice com sub e val IDÊNTICOS ao original (não invente).
+
+Retorne SOMENTE JSON array. Nenhum texto extra. Nenhum markdown.
+Formato: [{"i":0,"sub":"texto atualizado max 90 chars","val":"métrica","dir":"up|dn|neu"}, ...]
+Inclua TODOS os ${currentMacro.length} índices (0 a ${currentMacro.length-1}).
+
+Valores originais para referência:
+${currentMacro.map((c,i)=>`${i}: sub="${c.sub}" val="${c.val}" dir="${c.dir}"`).join('\n')}`;
+
+  try{
+    const text=await groqFetch(prompt,2000);
+    const clean=text.trim().replace(/```json|```/g,'').trim();
+    const match=clean.match(/\[[\s\S]*?\]/);
+    if(!match) throw new Error('JSON não encontrado');
+    const updates=JSON.parse(match[0]);
+    // merge: só sub, val, dir podem mudar; title e tag ficam intactos
+    updates.forEach(u=>{
+      if(u.i>=0 && u.i<currentMacro.length){
+        if(u.sub && u.sub.trim()) currentMacro[u.i].sub=u.sub;
+        if(u.val && u.val.trim()) currentMacro[u.i].val=u.val;
+        if(u.dir) currentMacro[u.i].dir=u.dir;
+      }
+    });
+    renderMacro(currentMacro);
+    document.getElementById('last-upd').textContent='atualizado: '+new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' BRT';
+  }catch(e){
+    // em caso de erro, mantém o que estava
+    console.warn('Macro update error:',e.message);
+    document.getElementById('macro-upd-btn').title='Erro: '+e.message;
+  }finally{btn.disabled=false; sp.style.display='none';}
+}
+
+// ════════════════════════════════════════════════
+// ANÁLISE IA GEOPOLÍTICA
+// ════════════════════════════════════════════════
+function md(t){
+  return t
+    .replace(/\*\*(\d+\.\s[^*]+)\*\*/g,'<div style="margin-top:10px;font-family:\'Bebas Neue\',sans-serif;font-size:13px;letter-spacing:2px;color:var(--amber)">$1</div>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong style="color:#e2e8f0">$1</strong>')
+    .replace(/^\*\s(.+)$/gm,'<div style="padding:3px 0 3px 10px;border-left:2px solid var(--border);color:#b0bec5;font-size:11px">$1</div>')
+    .replace(/\n{2,}/g,'').replace(/\n/g,'');
+}
+async function doUpdate(){
+  const btn=document.getElementById('upd-btn'),sp=document.getElementById('spin'),out=document.getElementById('ai-out');
+  btn.disabled=true; sp.style.display='inline-block';
+  out.innerHTML='<span class="cursor-blink">Consultando análise do conflito</span>';
+  const prompt=`Você é analista geopolítico e de mercados. Guerra EUA-Israel vs Irã (Operação Epic Fury, 28/fev/2026).
+STATUS Dia 18 (17/03/2026):
+• Brent ~US$107 — acumula +47% desde pré-guerra. WTI acima de $100
+• Larijani (seg. nacional) + Soleimani (Basij) eliminados — maiores baixas desde Khamenei pai
+• Israel lança invasão terrestre no Líbano. Bombas 5.000 lbs em Hormuz
+• NATO recusou missão em Hormuz. Trump ameaça sair da aliança
+• 12 drones MQ-9 Reaper americanos perdidos. 7.000+ alvos IDF atacados
+• 2 mortos em Tel Aviv (mísseis iranianos D18 madrugada)
+• Brasil: Ibovespa 177k (−3,28% no pior dia desde dez), dólar R$5,32
+• Focus 16/03: IPCA revisado para 4,10%, Selic fim 2026 → 12,25%
+• Copom: mercado precifica corte de só 25bps (antes 50bps)`;
+
+Forneça análise CONCISA (máx 200 palavras) neste formato exato:
+
+**1. STATUS MILITAR**
+* ponto A
+* ponto B
+
+**2. PETRÓLEO — Brent próximos dias**
+* cenário base
+* cenário alternativo
+
+**3. BRASIL — Ibovespa, USD/BRL, Selic**
+* Ibovespa: outlook
+* Câmbio: outlook
+* Selic: outlook
+
+Linguagem técnica de mercado. Números quando possível. Português.`;
+  try{
+    const text=await groqFetch(prompt,1000);
+    out.innerHTML=''; let i=0,buf='';
+    const iv=setInterval(()=>{
+      buf+=text[i]||''; i++;
+      if(i%4===0||i>=text.length) out.innerHTML=md(buf);
+      if(i>=text.length){
+        clearInterval(iv);
+        document.getElementById('last-upd').textContent='atualizado: '+new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' BRT';
+        out.scrollTop=out.scrollHeight;
+      }
+    },13);
+  }catch(e){
+    out.innerHTML=`<span class="dg">Erro: ${e.message}</span>`;
+  }finally{btn.disabled=false; sp.style.display='none';}
+}
+
+// ════════════════════════════════════════════════
+// ATUALIZAR LOG DE EVENTOS via IA
+// ════════════════════════════════════════════════
+async function doLogUpdate(){
+  const btn=document.getElementById('log-upd-btn'),sp=document.getElementById('spin3');
+  btn.disabled=true; sp.style.display='inline-block';
+  const prompt=`Retorne SOMENTE um JSON array com EXATAMENTE 18 objetos. Nenhum texto antes ou depois. Nenhum markdown.
+Cada objeto: {"day":N,"date":"DD/MM","ev":"resumo do dia, max 75 chars"}
+N vai de 1 a 18. Datas de 28/02 a 17/03.
+
+Eventos base (melhore o texto mas mantenha os fatos):
+[{"day":1,"date":"28/02","ev":"Morte de Khamenei. Ormuz fechado. Brent +10%."},
+{"day":2,"date":"01/03","ev":"Ormuz bloqueado. Ira declara guerra formal."},
+{"day":3,"date":"02/03","ev":"EUA destroem SNSC e Conselho de Discernimento."},
+{"day":4,"date":"03/03","ev":"Trump anuncia escolta naval. Brent US$85."},
+{"day":5,"date":"04/03","ev":"Misseis -65% vs Dia 1. Marinha iraniana degradada."},
+{"day":6,"date":"05/03","ev":"Qatar forca maior no GNL. Cortes no Golfo."},
+{"day":7,"date":"06/03","ev":"Israel ataca refinarias iranianas. Trump: rendicao incondicional."},
+{"day":8,"date":"07/03","ev":"PICO Brent US$119,50 intraday. Mojtaba nomeado Lider."},
+{"day":9,"date":"08/03","ev":"Brent abre acima US$100. Bolsas asiaticas -5% a -8%."},
+{"day":10,"date":"09/03","ev":"Trump CBS: guerra muito completa. Brent -11,3% para $87,80."},
+{"day":11,"date":"10/03","ev":"Wright deleta post falso de escolta. WTI oscilou $77-$93."},
+{"day":12,"date":"11/03","ev":"AIE libera 400M barris (recorde). Ira: operacao mais intensa."},
+{"day":13,"date":"12/03","ev":"Khamenei: Hormuz permanece fechado. Brent fecha $100,46."},
+{"day":14,"date":"13/03","ev":"Kharg Island bombardeada. KC-135: 6 mortos. Brent $103,14."},
+{"day":15,"date":"14/03","ev":"Dubai airport fechado. 5.000 marines ao OM. Custo $12bi."},
+{"day":16,"date":"15/03","ev":"Isfahan atacada (15 mortos). Ira nega cessar-fogo. Brent $105,66."},
+{"day":17,"date":"16/03","ev":"Israel destroi aviao Khamenei. NATO recusa Hormuz. 200 EUA feridos."},
+{"day":18,"date":"17/03","ev":"Larijani + Soleimani eliminados. Israel invade Libano. Brent $107+."}]
+
+Retorne o JSON agora:`;
+  try{
+    const text=await groqFetch(prompt,1600);
+    const clean=text.trim().replace(/```json|```/g,'').trim();
+    const match=clean.match(/\[[\s\S]*\]/);
+    if(!match) throw new Error('JSON não encontrado na resposta');
+    const items=JSON.parse(match[0]);
+    items.forEach(it=>{const r=D.find(d=>d.day===it.day);if(r){r.ev=it.ev;}});
+    buildLog();
+    document.getElementById('last-upd').textContent='atualizado: '+new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' BRT';
+  }catch(e){
+    document.getElementById('event-log').innerHTML=`<div class="ei"><div class="et" style="color:var(--accent)">Erro: ${e.message}</div></div>`;
+  }finally{btn.disabled=false; sp.style.display='none';}
+}
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+initChart1();
+initChart2();
+buildLog();
+renderMacro(currentMacro);
+fetchBrentLive();
+setInterval(fetchBrentLive,60000);
+
+const saved=getKey();
+if(saved){document.getElementById('api-key-input').value=saved;updateKeyStatus(saved);}
+
+document.getElementById('day-badge').textContent='DIA '+Math.max(1,Math.floor((new Date()-new Date('2026-02-28'))/86400000)+1);
+</script>
+</body>
+</html>
